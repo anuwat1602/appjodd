@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TaskFlow - จดบันทึกสิ่งที่ต้องทำ</title>
+
+    <!-- PWA & Mobile App Configuration -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#064e3b">
+    <meta name="apple-mobile-web-app-title" content="TaskFlow">
+    <meta name="application-name" content="TaskFlow">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Dynamic App Icons & Manifest (Populated via JS for crisp SVG & PNG icons on iOS/Android) -->
+    <link id="favicon-link" rel="icon" type="image/svg+xml" href="">
+    <link id="apple-touch-icon-link" rel="apple-touch-icon" href="">
+    <link id="manifest-link" rel="manifest" href="">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    <meta name="theme-color" content="#059669"> 
+
+    <!-- Google Fonts: Prompt & Noto Sans Thai -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans Thai"', '"Prompt"', 'sans-serif'],
+                        display: ['"Prompt"', '"Noto Sans Thai"', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                            950: '#090d16',
+                        },
+                        emerald: {
+                            450: '#10b981',
+                            850: '#064e3b',
+                            950: '#022c22',
+                        }
+                    },
+                    animation: {
+                        'blob': 'blob 10s infinite',
+                        'fade-in': 'fadeIn 0.3s ease-out forwards',
+                        'slide-up': 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -40px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(16px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom Glassmorphism & Utilities */
+        body {
+            background-color: #090d16;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.62);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+        }
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.55) 0%, rgba(15, 23, 42, 0.75) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(16, 185, 129, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px -6px rgba(6, 78, 59, 0.25);
+        }
+
+        .glass-input {
+            background: rgba(9, 13, 22, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .glass-input:focus {
+            background: rgba(9, 13, 22, 0.85);
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+            outline: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.7);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 185, 129, 0.6);
+        }
+
+        /* Hide scrollbar for horizontal pill filters on mobile */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Strikethrough animation for completed tasks */
+        .task-title-text {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        .task-completed .task-title-text {
+            color: #64748b;
+            text-decoration: line-through;
+            text-decoration-color: #10b981;
+            text-decoration-thickness: 2px;
+        }
+
+        /* Color scheme for native date input in dark mode */
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(1) opacity(0.7);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden selection:bg-emerald-500/30 selection:text-emerald-200">
+
+    <!-- Ambient Background Glows -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div class="absolute -top-24 -left-24 w-80 h-80 md:w-[32rem] md:h-[32rem] bg-emerald-600/20 rounded-full mix-blend-screen filter blur-[100px] animate-blob"></div>
+        <div class="absolute top-1/3 -right-24 w-72 h-72 md:w-[28rem] md:h-[28rem] bg-teal-500/15 rounded-full mix-blend-screen filter blur-[100px] animate-blob" style="animation-delay: 2s;"></div>
+        <div class="absolute -bottom-32 left-1/4 w-80 h-80 md:w-[30rem] md:h-[30rem] bg-emerald-900/30 rounded-full mix-blend-screen filter blur-[110px] animate-blob" style="animation-delay: 4s;"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28 sm:pb-12">
+
+        <!-- Header -->
+        <header class="flex items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3.5">
+                <!-- App Icon Badge -->
+                <div id="header-app-icon" class="w-12 h-12 rounded-2xl shadow-lg shadow-emerald-950/60 flex items-center justify-center overflow-hidden border border-emerald-400/30 shrink-0">
+                    <!-- Injected via JS -->
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-display text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">
+                            TaskFlow
+                        </h1>
+                        <span class="px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                            Pro
+                        </span>
+                    </div>
+                    <p id="current-date-display" class="text-xs sm:text-sm text-slate-400 mt-0.5">
+                        กำลังโหลดวันที่...
+                    </p>
+                </div>
+            </div>
+
+            <!-- Action Buttons: Deploy PWA Files & Install Guide -->
+            <div class="flex items-center gap-2 shrink-0">
+                <button onclick="openDeployModal()" class="glass-card px-3 py-2.5 rounded-2xl flex items-center gap-1.5 text-xs sm:text-sm font-medium text-teal-300 hover:text-white border-teal-500/30 active:scale-95 transition cursor-pointer">
+                    <i data-lucide="package" class="w-4 h-4 text-teal-400"></i>
+                    <span class="hidden md:inline">ไฟล์ Deploy (manifest.json)</span>
+                    <span class="md:hidden">ไฟล์ PWA</span>
+                </button>
+                <button onclick="openInstallModal()" class="glass-card px-3 py-2.5 rounded-2xl flex items-center gap-1.5 text-xs sm:text-sm font-medium text-emerald-300 hover:text-white border-emerald-500/25 active:scale-95 transition cursor-pointer">
+                    <i data-lucide="smartphone" class="w-4 h-4 text-emerald-400"></i>
+                    <span class="hidden sm:inline">ติดตั้งลงมือถือ</span>
+                    <span class="sm:hidden">ติดตั้ง</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dashboard Overview & Progress Card -->
+        <section class="glass-panel rounded-3xl p-5 sm:p-6 mb-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+            
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-5">
+                <div class="bg-slate-950/50 border border-white/5 rounded-2xl p-3.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400 font-medium">งานทั้งหมด</p>
+                        <p id="stat-total" class="font-display text-2xl sm:text-3xl font-bold text-white mt-0.5">0</p>
+                    </div>
+                    <div class="hidden sm:flex w-10 h-10 rounded-xl bg-slate-800/80 items-center justify-center text-slate-300">
+                        <i data-lucide="layers" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/50 border border-emerald-500/15 rounded-2xl p-3.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-xs text-emerald-400/90 font-medium">เสร็จแล้ว</p>
+                        <p id="stat-completed" class="font-display text-2xl sm:text-3xl font-bold text-emerald-400 mt-0.5">0</p>
+                    </div>
+                    <div class="hidden sm:flex w-10 h-10 rounded-xl bg-emerald-500/15 items-center justify-center text-emerald-400">
+                        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/50 border border-amber-500/15 rounded-2xl p-3.5 sm:p-4 text-center sm:text-left flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-xs text-amber-400/90 font-medium">ค้างอยู่</p>
+                        <p id="stat-pending" class="font-display text-2xl sm:text-3xl font-bold text-amber-300 mt-0.5">0</p>
+                    </div>
+                    <div class="hidden sm:flex w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center text-amber-400">
+                        <i data-lucide="clock" class="w-5 h-5"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div>
+                <div class="flex items-center justify-between text-xs sm:text-sm mb-2">
+                    <span class="text-slate-300 font-medium flex items-center gap-1.5">
+                        <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+                        ความคืบหน้าโดยรวม
+                    </span>
+                    <span id="progress-percentage" class="font-display font-bold text-emerald-400">0%</span>
+                </div>
+                <div class="w-full h-3 bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-white/5">
+                    <div id="progress-bar-fill" class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-emerald-400 to-teal-300 transition-all duration-500 ease-out shadow-[0_0_12px_rgba(16,185,129,0.5)]" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Desktop / Quick Add Task Form -->
+        <section class="glass-panel rounded-3xl p-4 sm:p-6 mb-6">
+            <form id="quick-task-form" class="space-y-4">
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="relative flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-400"></i>
+                        </div>
+                        <input type="text" id="task-title-input" required placeholder="เพิ่มสิ่งที่ต้องทำใหม่... (เช่น ประชุมทีม, อ่านหนังสือ)" 
+                            class="glass-input w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm sm:text-base text-white placeholder-slate-400">
+                    </div>
+                    <button type="submit" class="hidden sm:flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium shadow-lg shadow-emerald-950/50 active:scale-95 transition cursor-pointer shrink-0">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        <span>เพิ่มรายการ</span>
+                    </button>
+                </div>
+
+                <!-- Task Metadata Controls (Responsive Grid) -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <!-- Category -->
+                    <div class="relative">
+                        <label class="block text-[11px] text-slate-400 mb-1 ml-1">หมวดหมู่</label>
+                        <select id="task-category-input" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm text-slate-200 appearance-none cursor-pointer">
+                            <option value="งาน" class="bg-slate-900">💼 งาน (Work)</option>
+                            <option value="ส่วนตัว" class="bg-slate-900">🏠 ส่วนตัว (Personal)</option>
+                            <option value="เรียน" class="bg-slate-900">📚 เรียน (Study)</option>
+                            <option value="ด่วน" class="bg-slate-900">🔥 ด่วน (Urgent)</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 bottom-3 pointer-events-none"></i>
+                    </div>
+
+                    <!-- Priority -->
+                    <div class="relative">
+                        <label class="block text-[11px] text-slate-400 mb-1 ml-1">ระดับความสำคัญ</label>
+                        <select id="task-priority-input" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm text-slate-200 appearance-none cursor-pointer">
+                            <option value="medium" class="bg-slate-900">🟡 ปานกลาง (Medium)</option>
+                            <option value="high" class="bg-slate-900">🔴 สูง (High)</option>
+                            <option value="low" class="bg-slate-900">🟢 ต่ำ (Low)</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 bottom-3 pointer-events-none"></i>
+                    </div>
+
+                    <!-- Due Date & Time -->
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1 ml-1">วันและเวลาครบกำหนด</label>
+                        <input type="datetime-local" id="task-due-input" class="glass-input w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm text-slate-200">
+                    </div>
+                </div>
+
+                <!-- Mobile Submit Button inside form (also have floating button for one-hand use) -->
+                <button type="submit" class="sm:hidden w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium text-sm shadow-lg shadow-emerald-950/50 active:scale-95 transition">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>บันทึกรายการ</span>
+                </button>
+            </form>
+        </section>
+
+        <!-- Search & Filter Controls -->
+        <section class="space-y-3 mb-5">
+            <!-- Search & Status Tabs -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <!-- Search Box -->
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="search-input" placeholder="ค้นหารายการสิ่งที่ต้องทำ..." 
+                        class="glass-input w-full pl-10 pr-9 py-2.5 rounded-2xl text-sm text-white placeholder-slate-400">
+                    <button id="clear-search-btn" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Status Segmented Control -->
+                <div class="glass-panel p-1 rounded-2xl flex items-center justify-between sm:justify-start gap-1 shrink-0">
+                    <button onclick="setStatusFilter('all')" data-status="all" class="status-tab flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer bg-emerald-600 text-white shadow">
+                        ทั้งหมด
+                    </button>
+                    <button onclick="setStatusFilter('active')" data-status="active" class="status-tab flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer text-slate-300 hover:text-white">
+                        กำลังทำ
+                    </button>
+                    <button onclick="setStatusFilter('completed')" data-status="completed" class="status-tab flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer text-slate-300 hover:text-white">
+                        เสร็จแล้ว
+                    </button>
+                </div>
+            </div>
+
+            <!-- Category Horizontal Filter Pills -->
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                <button onclick="setCategoryFilter('all')" data-cat="all" class="cat-pill px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    ทุกหมวดหมู่
+                </button>
+                <button onclick="setCategoryFilter('งาน')" data-cat="งาน" class="cat-pill px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer bg-slate-800/60 text-slate-300 border border-white/5 hover:border-white/20">
+                    💼 งาน
+                </button>
+                <button onclick="setCategoryFilter('ส่วนตัว')" data-cat="ส่วนตัว" class="cat-pill px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer bg-slate-800/60 text-slate-300 border border-white/5 hover:border-white/20">
+                    🏠 ส่วนตัว
+                </button>
+                <button onclick="setCategoryFilter('เรียน')" data-cat="เรียน" class="cat-pill px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer bg-slate-800/60 text-slate-300 border border-white/5 hover:border-white/20">
+                    📚 เรียน
+                </button>
+                <button onclick="setCategoryFilter('ด่วน')" data-cat="ด่วน" class="cat-pill px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer bg-slate-800/60 text-slate-300 border border-white/5 hover:border-white/20">
+                    🔥 ด่วน
+                </button>
+            </div>
+        </section>
+
+        <!-- Task List Container -->
+        <main id="task-list-container" class="space-y-3">
+            <!-- Tasks will be rendered here dynamically -->
+        </main>
+
+        <!-- Empty State (Hidden when tasks exist) -->
+        <div id="empty-state" class="hidden glass-panel rounded-3xl p-10 text-center my-4">
+            <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4 text-emerald-400">
+                <i data-lucide="clipboard-check" class="w-8 h-8"></i>
+            </div>
+            <h3 class="font-display text-lg font-semibold text-white mb-1">ไม่มีรายการในหมวดหมู่นี้</h3>
+            <p class="text-sm text-slate-400 max-w-xs mx-auto">
+                เพิ่มรายการสิ่งที่ต้องทำใหม่ด้านบน หรือลองเปลี่ยนตัวกรองการค้นหาของคุณ
+            </p>
+        </div>
+
+    </div>
+
+    <!-- Mobile Floating One-Hand Quick Focus Button (Bottom Right, Safe Area Aware) -->
+    <div class="fixed bottom-5 right-5 sm:hidden z-30" style="margin-bottom: env(safe-area-inset-bottom);">
+        <button onclick="focusQuickAdd()" aria-label="เพิ่มงานใหม่" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-slate-950 shadow-[0_8px_25px_rgba(16,185,129,0.45)] flex items-center justify-center active:scale-90 transition border border-emerald-200/40">
+            <i data-lucide="plus" class="w-7 h-7 stroke-[2.5]"></i>
+        </button>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 border border-white/10 shadow-2xl animate-slide-up">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="font-display text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-emerald-400"></i>
+                    แก้ไขรายการ
+                </h3>
+                <button onclick="closeEditModal()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="edit-task-form" class="space-y-4">
+                <input type="hidden" id="edit-task-id">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1.5">ชื่องาน / รายละเอียด</label>
+                    <input type="text" id="edit-task-title" required class="glass-input w-full px-4 py-3 rounded-2xl text-sm text-white">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1.5">หมวดหมู่</label>
+                        <select id="edit-task-category" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-200">
+                            <option value="งาน" class="bg-slate-900">💼 งาน</option>
+                            <option value="ส่วนตัว" class="bg-slate-900">🏠 ส่วนตัว</option>
+                            <option value="เรียน" class="bg-slate-900">📚 เรียน</option>
+                            <option value="ด่วน" class="bg-slate-900">🔥 ด่วน</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1.5">ความสำคัญ</label>
+                        <select id="edit-task-priority" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-200">
+                            <option value="high" class="bg-slate-900">🔴 สูง</option>
+                            <option value="medium" class="bg-slate-900">🟡 ปานกลาง</option>
+                            <option value="low" class="bg-slate-900">🟢 ต่ำ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1.5">วันและเวลาครบกำหนด</label>
+                    <input type="datetime-local" id="edit-task-due" class="glass-input w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-200">
+                </div>
+
+                <div class="flex items-center justify-end gap-2.5 pt-2">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 transition">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-medium bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-950/50 hover:from-emerald-500 hover:to-teal-500 transition">
+                        บันทึกการแก้ไข
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PWA App Icon Preview & Install Guide Modal -->
+    <div id="install-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
+        <div class="glass-panel w-full max-w-lg rounded-3xl p-6 sm:p-7 border border-emerald-500/20 shadow-2xl my-auto animate-slide-up">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    </span>
+                    <h3 class="font-display text-lg sm:text-xl font-bold text-white">ติดตั้งแอปลงหน้าจอมือถือ</h3>
+                </div>
+                <button onclick="closeInstallModal()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Phone Home Screen Mockup Preview -->
+            <div class="bg-slate-950/80 border border-white/10 rounded-3xl p-5 mb-5 text-center relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none"></div>
+                <p class="text-xs text-emerald-400 font-medium mb-4">ตัวอย่างหน้าตาไอคอนเมื่อติดตั้งบนหน้าจอโฮม (iOS & Android)</p>
+                
+                <!-- Simulated Phone Dock / Grid -->
+                <div class="inline-flex items-center justify-center gap-6 px-6 py-4 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md">
+                    <!-- App Icon Preview -->
+                    <div class="flex flex-col items-center gap-1.5">
+                        <div id="modal-app-icon-preview" class="w-16 h-16 rounded-[18px] shadow-[0_10px_25px_rgba(16,185,129,0.35)] overflow-hidden ring-1 ring-white/20 transform hover:scale-105 transition">
+                            <!-- SVG Icon Injected Here -->
+                        </div>
+                        <span class="text-[11px] font-medium text-white tracking-tight">TaskFlow</span>
+                    </div>
+
+                    <!-- Other dummy icons for realism -->
+                    <div class="flex flex-col items-center gap-1.5 opacity-40">
+                        <div class="w-16 h-16 rounded-[18px] bg-slate-800 border border-white/10 flex items-center justify-center">
+                            <i data-lucide="calendar" class="w-7 h-7 text-slate-400"></i>
+                        </div>
+                        <span class="text-[11px] text-slate-400">ปฏิทิน</span>
+                    </div>
+                    <div class="hidden sm:flex flex-col items-center gap-1.5 opacity-40">
+                        <div class="w-16 h-16 rounded-[18px] bg-slate-800 border border-white/10 flex items-center justify-center">
+                            <i data-lucide="folder" class="w-7 h-7 text-slate-400"></i>
+                        </div>
+                        <span class="text-[11px] text-slate-400">ไฟล์</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="space-y-3 text-xs sm:text-sm text-slate-300 mb-6">
+                <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-white/5">
+                    <p class="font-semibold text-white mb-1 flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-emerald-300">iOS (Safari)</span>
+                        วิธีเพิ่มลงหน้าจอ iPhone / iPad
+                    </p>
+                    <p class="text-slate-400 leading-relaxed">
+                        1. เปิดเว็บนี้ผ่านเบราว์เซอร์ <strong class="text-slate-200">Safari</strong><br>
+                        2. แตะปุ่ม <strong class="text-slate-200">แชร์ (Share)</strong> ด้านล่างหน้าจอ<br>
+                        3. เลื่อนลงแล้วเลือก <strong class="text-emerald-400">"เพิ่มไปยังหน้าจอโฮม" (Add to Home Screen)</strong>
+                    </p>
+                </div>
+
+                <div class="p-3.5 rounded-2xl bg-slate-900/70 border border-white/5">
+                    <p class="font-semibold text-white mb-1 flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-emerald-300">Android (Chrome)</span>
+                        วิธีติดตั้งบนมือถือ Android
+                    </p>
+                    <p class="text-slate-400 leading-relaxed">
+                        1. เปิดเว็บนี้ผ่าน <strong class="text-slate-200">Google Chrome</strong><br>
+                        2. แตะเมนู <strong class="text-slate-200">จุด 3 จุด (⋮)</strong> มุมขวาบน<br>
+                        3. เลือก <strong class="text-emerald-400">"เพิ่มลงในหน้าจอหลัก"</strong> หรือ <strong class="text-emerald-400">"ติดตั้งแอป"</strong>
+                    </p>
+                </div>
+            </div>
+
+            <button onclick="closeInstallModal()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium text-sm shadow-lg shadow-emerald-950/50 hover:from-emerald-500 hover:to-teal-500 transition cursor-pointer">
+                เข้าใจแล้ว เริ่มใช้งานเลย
+            </button>
+        </div>
+    </div>
+
+    <!-- Deploy PWA Files Modal (manifest.json, icon-192.png, icon-512.png, sw.js) -->
+    <div id="deploy-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
+        <div class="glass-panel w-full max-w-2xl rounded-3xl p-5 sm:p-7 border border-teal-500/25 shadow-2xl my-auto animate-slide-up">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-300 flex items-center justify-center border border-teal-500/30">
+                        <i data-lucide="file-code-2" class="w-5 h-5"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-display text-lg sm:text-xl font-bold text-white">ไฟล์สำหรับ Deploy (PWA & Icons)</h3>
+                        <p class="text-xs text-slate-400">ดาวน์โหลดไฟล์ทั้งหมดไปวางในโฟลเดอร์เดียวกับ index.html</p>
+                    </div>
+                </div>
+                <button onclick="closeDeployModal()" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- 1. One-Click Download Grid for Required PWA Files -->
+            <div class="bg-slate-950/70 border border-white/10 rounded-2xl p-4 mb-5">
+                <p class="text-xs font-semibold text-emerald-300 mb-3 flex items-center gap-1.5">
+                    <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                    1. ดาวน์โหลดไฟล์ครบชุดสำหรับอัปโหลดขึ้นโฮสต์ (Vercel / Netlify / GitHub Pages)
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button onclick="downloadManifestFile()" class="glass-card p-3 rounded-xl flex items-center justify-between text-left hover:border-emerald-400/50 transition cursor-pointer">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-300 flex items-center justify-center font-mono text-xs font-bold">{}</span>
+                            <div>
+                                <p class="text-xs sm:text-sm font-semibold text-white">manifest.json</p>
+                                <p class="text-[11px] text-slate-400">ตั้งค่าชื่อและไอคอนแอป</p>
+                            </div>
+                        </div>
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                    </button>
+
+                    <button onclick="downloadSWFile()" class="glass-card p-3 rounded-xl flex items-center justify-between text-left hover:border-emerald-400/50 transition cursor-pointer">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-sky-500/15 text-sky-300 flex items-center justify-center font-mono text-xs font-bold">JS</span>
+                            <div>
+                                <p class="text-xs sm:text-sm font-semibold text-white">sw.js</p>
+                                <p class="text-[11px] text-slate-400">Service Worker สำหรับ Android</p>
+                            </div>
+                        </div>
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                    </button>
+
+                    <button onclick="downloadIconPNG(192)" class="glass-card p-3 rounded-xl flex items-center justify-between text-left hover:border-emerald-400/50 transition cursor-pointer">
+                        <div class="flex items-center gap-2.5">
+                            <div id="deploy-icon-192-thumb" class="w-8 h-8 rounded-lg overflow-hidden border border-white/15 shrink-0"></div>
+                            <div>
+                                <p class="text-xs sm:text-sm font-semibold text-white">icon-192.png</p>
+                                <p class="text-[11px] text-slate-400">ไอคอนขนาด 192x192 px</p>
+                            </div>
+                        </div>
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                    </button>
+
+                    <button onclick="downloadIconPNG(512)" class="glass-card p-3 rounded-xl flex items-center justify-between text-left hover:border-emerald-400/50 transition cursor-pointer">
+                        <div class="flex items-center gap-2.5">
+                            <div id="deploy-icon-512-thumb" class="w-8 h-8 rounded-lg overflow-hidden border border-white/15 shrink-0"></div>
+                            <div>
+                                <p class="text-xs sm:text-sm font-semibold text-white">icon-512.png</p>
+                                <p class="text-[11px] text-slate-400">ไอคอนความละเอียดสูง 512x512</p>
+                            </div>
+                        </div>
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Code Snippets with Copy Buttons -->
+            <div class="space-y-3.5 mb-5">
+                <!-- HTML Head Link Snippet -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-medium text-slate-300">2. โค้ดสำหรับใส่ใน <code class="text-emerald-400">&lt;head&gt;</code> ของ index.html</span>
+                        <button onclick="copyCodeBlock('html-head-code')" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-[11px] font-medium flex items-center gap-1 transition cursor-pointer">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>คัดลอกโค้ด HTML</span>
+                        </button>
+                    </div>
+                    <pre id="html-head-code" class="bg-slate-950/90 border border-white/10 rounded-xl p-3 text-[11px] sm:text-xs font-mono text-emerald-200 overflow-x-auto select-all">&lt;link rel="manifest" href="manifest.json"&gt;
+&lt;link rel="apple-touch-icon" href="icon-192.png"&gt;
+&lt;meta name="theme-color" content="#064e3b"&gt;</pre>
+                </div>
+
+                <!-- manifest.json Preview & Copy -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-medium text-slate-300">3. เนื้อหาไฟล์ <code class="text-amber-300">manifest.json</code></span>
+                        <button onclick="copyCodeBlock('manifest-json-code')" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-[11px] font-medium flex items-center gap-1 transition cursor-pointer">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>คัดลอก manifest.json</span>
+                        </button>
+                    </div>
+                    <pre id="manifest-json-code" class="bg-slate-950/90 border border-white/10 rounded-xl p-3 text-[11px] font-mono text-slate-200 max-h-40 overflow-y-auto overflow-x-auto select-all"></pre>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5">
+                <button onclick="closeDeployModal()" class="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-medium text-sm shadow-lg shadow-emerald-950/50 hover:from-emerald-500 hover:to-teal-500 transition cursor-pointer">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Toast Notification -->
+    <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 w-full max-w-xs px-4"></div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // ==========================================
+        // 1. PWA App Icon & Dynamic Manifest Generator
+        // ==========================================
+        const appIconSVG = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+            <defs>
+                <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#065f46"/>
+                    <stop offset="50%" stop-color="#064e3b"/>
+                    <stop offset="100%" stop-color="#022c22"/>
+                </linearGradient>
+                <linearGradient id="checkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#6ee7b7"/>
+                    <stop offset="100%" stop-color="#10b981"/>
+                </linearGradient>
+                <linearGradient id="glassHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+                    <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0"/>
+                </linearGradient>
+            </defs>
+            <!-- Background Squircle -->
+            <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+            <!-- Ambient Inner Glow -->
+            <circle cx="140" cy="120" r="180" fill="#10b981" opacity="0.22"/>
+            <!-- Glass Card Inner Frame -->
+            <rect x="76" y="76" width="360" height="360" rx="80" fill="#0f172a" fill-opacity="0.45" stroke="#34d399" stroke-opacity="0.35" stroke-width="6"/>
+            <!-- Top Glass Sheen -->
+            <path d="M76 156 C76 111.8 111.8 76 156 76 L356 76 C400.2 76 436 111.8 436 156 L436 220 C320 260 190 260 76 220 Z" fill="url(#glassHighlight)"/>
+            <!-- Task Lines & Checkmark -->
+            <path d="M168 264 L228 324 L352 192" fill="none" stroke="url(#checkGrad)" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- Subtle Accent Dots -->
+            <circle cx="168" cy="366" r="14" fill="#34d399" opacity="0.8"/>
+            <rect x="204" y="354" width="140" height="24" rx="12" fill="#94a3b8" opacity="0.45"/>
+        </svg>`;
+
+        function setupPWAAssets() {
+            const svgEncoded = encodeURIComponent(appIconSVG.trim());
+            const svgDataUri = `data:image/svg+xml;charset=utf-8,${svgEncoded}`;
+
+            // Inject SVG into Header & Modal previews
+            document.getElementById('header-app-icon').innerHTML = appIconSVG;
+            document.getElementById('modal-app-icon-preview').innerHTML = appIconSVG;
+            const thumb192 = document.getElementById('deploy-icon-192-thumb');
+            const thumb512 = document.getElementById('deploy-icon-512-thumb');
+            if (thumb192) thumb192.innerHTML = appIconSVG;
+            if (thumb512) thumb512.innerHTML = appIconSVG;
+            document.getElementById('favicon-link').href = svgDataUri;
+
+            // Populate static deploy manifest code preview
+            const deployManifestContent = getDeployManifestJSON();
+            const manifestCodeEl = document.getElementById('manifest-json-code');
+            if (manifestCodeEl) {
+                manifestCodeEl.textContent = deployManifestContent;
+            }
+
+            // Convert SVG to PNG via Canvas for Apple Touch Icon & Dynamic Web Manifest
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, 512, 512);
+                const pngDataUrl = canvas.toDataURL('image/png');
+
+                // Set apple-touch-icon
+                document.getElementById('apple-touch-icon-link').href = pngDataUrl;
+
+                // Create Dynamic Web App Manifest for immediate preview
+                const manifest = {
+                    name: "TaskFlow - จดบันทึกสิ่งที่ต้องทำ",
+                    short_name: "TaskFlow",
+                    description: "แอปจดบันทึกสิ่งที่ต้องทำสไตล์ Glassmorphism รองรับทุกอุปกรณ์",
+                    start_url: window.location.href,
+                    display: "standalone",
+                    background_color: "#090d16",
+                    theme_color: "#064e3b",
+                    orientation: "portrait-primary",
+                    icons: [
+                        {
+                            src: pngDataUrl,
+                            sizes: "192x192",
+                            type: "image/png",
+                            purpose: "any maskable"
+                        },
+                        {
+                            src: pngDataUrl,
+                            sizes: "512x512",
+                            type: "image/png",
+                            purpose: "any maskable"
+                        }
+                    ]
+                };
+
+                const manifestString = JSON.stringify(manifest);
+                const manifestDataUri = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(manifestString);
+                document.getElementById('manifest-link').href = manifestDataUri;
+            };
+            img.src = svgDataUri;
+
+            // Register Service Worker safely if hosted over HTTP/HTTPS with sw.js
+            if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+                navigator.serviceWorker.register('./sw.js').catch(() => {
+                    // Silent catch when sw.js is not yet placed alongside single-file preview
+                });
+            }
+        }
+
+        // ==========================================
+        // 1.5 Deploy Files Generators & Download Helpers
+        // ==========================================
+        function getDeployManifestJSON() {
+            const deployManifest = {
+                name: "TaskFlow - จดบันทึกสิ่งที่ต้องทำ",
+                short_name: "TaskFlow",
+                description: "แอปจดบันทึกสิ่งที่ต้องทำสไตล์ Glassmorphism รองรับทุกขนาดหน้าจอ",
+                start_url: "./index.html",
+                scope: "./",
+                display: "standalone",
+                background_color: "#090d16",
+                theme_color: "#064e3b",
+                orientation: "portrait-primary",
+                icons: [
+                    {
+                        src: "icon-192.png",
+                        sizes: "192x192",
+                        type: "image/png",
+                        purpose: "any maskable"
+                    },
+                    {
+                        src: "icon-512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                        purpose: "any maskable"
+                    }
+                ]
+            };
+            return JSON.stringify(deployManifest, null, 2);
+        }
+
+        function getServiceWorkerCode() {
+            return `// TaskFlow Service Worker (sw.js)
+const CACHE_NAME = 'taskflow-pwa-v1';
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      return cachedResponse || fetch(event.request);
+    })
+  );
+});
+`;
+        }
+
+        function triggerFileDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function downloadManifestFile() {
+            const content = getDeployManifestJSON();
+            const blob = new Blob([content], { type: 'application/manifest+json;charset=utf-8' });
+            triggerFileDownload(blob, 'manifest.json');
+            showToast('ดาวน์โหลด manifest.json สำเร็จ');
+        }
+
+        function downloadSWFile() {
+            const content = getServiceWorkerCode();
+            const blob = new Blob([content], { type: 'application/javascript;charset=utf-8' });
+            triggerFileDownload(blob, 'sw.js');
+            showToast('ดาวน์โหลด sw.js สำเร็จ');
+        }
+
+        function downloadIconPNG(size) {
+            const svgEncoded = encodeURIComponent(appIconSVG.trim());
+            const svgDataUri = `data:image/svg+xml;charset=utf-8,${svgEncoded}`;
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, size, size);
+                canvas.toBlob(function(blob) {
+                    if (blob) {
+                        triggerFileDownload(blob, `icon-${size}.png`);
+                        showToast(`ดาวน์โหลด icon-${size}.png สำเร็จ`);
+                    }
+                }, 'image/png');
+            };
+            img.src = svgDataUri;
+        }
+
+        function copyCodeBlock(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const textArea = document.createElement('textarea');
+            textArea.value = el.textContent;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('คัดลอกโค้ดลงคลิปบอร์ดแล้ว');
+            } catch (err) {
+                showToast('ไม่สามารถคัดลอกอัตโนมัติได้');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // ==========================================
+        // 2. State Management & LocalStorage
+        // ==========================================
+        const STORAGE_KEY = 'taskflow_thai_tasks_v1';
+        let tasks = [];
+        let currentStatusFilter = 'all';
+        let currentCategoryFilter = 'all';
+        let searchQuery = '';
+
+        // Default sample tasks for first-time users
+        const defaultTasks = [
+            {
+                id: 'task-1',
+                title: 'วางแผนสรุปงานประจำสัปดาห์กับทีม',
+                category: 'งาน',
+                priority: 'high',
+                dueDate: new Date(Date.now() + 3600 * 1000 * 4).toISOString().slice(0, 16),
+                completed: false,
+                createdAt: Date.now() - 100000
+            },
+            {
+                id: 'task-2',
+                title: 'ทบทวนบทเรียนและสรุปโน้ตสำคัญ',
+                category: 'เรียน',
+                priority: 'medium',
+                dueDate: new Date(Date.now() + 3600 * 1000 * 24).toISOString().slice(0, 16),
+                completed: false,
+                createdAt: Date.now() - 200000
+            },
+            {
+                id: 'task-3',
+                title: 'ออกกำลังกายช่วงเย็น 30 นาที',
+                category: 'ส่วนตัว',
+                priority: 'low',
+                dueDate: '',
+                completed: true,
+                createdAt: Date.now() - 300000
+            }
+        ];
+
+        function loadTasks() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    tasks = JSON.parse(saved);
+                } else {
+                    tasks = defaultTasks;
+                    saveTasks();
+                }
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+                tasks = [];
+            }
+        }
+
+        function saveTasks() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+            } catch (error) {
+                console.error('Error saving tasks:', error);
+                showToast('ไม่สามารถบันทึกข้อมูลลงเครื่องได้', 'error');
+            }
+        }
+
+        // ==========================================
+        // 3. UI Rendering & Formatting Helpers
+        // ==========================================
+        function updateThaiDateDisplay() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const thaiDate = now.toLocaleDateString('th-TH', options);
+            document.getElementById('current-date-display').textContent = thaiDate;
+        }
+
+        function formatDueDate(dateString) {
+            if (!dateString) return null;
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return null;
+
+            const now = new Date();
+            const isOverdue = date < now;
+            const formatted = date.toLocaleDateString('th-TH', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) + ' น.';
+
+            return { text: formatted, isOverdue };
+        }
+
+        function getCategoryBadge(category) {
+            const styles = {
+                'งาน': { icon: '💼', bg: 'bg-sky-500/15', text: 'text-sky-300', border: 'border-sky-500/30' },
+                'ส่วนตัว': { icon: '🏠', bg: 'bg-purple-500/15', text: 'text-purple-300', border: 'border-purple-500/30' },
+                'เรียน': { icon: '📚', bg: 'bg-indigo-500/15', text: 'text-indigo-300', border: 'border-indigo-500/30' },
+                'ด่วน': { icon: '🔥', bg: 'bg-rose-500/15', text: 'text-rose-300', border: 'border-rose-500/30' }
+            };
+            const item = styles[category] || styles['งาน'];
+            return `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-medium ${item.bg} ${item.text} border ${item.border}">
+                <span>${item.icon}</span> ${category}
+            </span>`;
+        }
+
+        function getPriorityBadge(priority) {
+            const map = {
+                'high': { label: 'สำคัญสูง', dot: 'bg-rose-400', text: 'text-rose-300', bg: 'bg-rose-500/10' },
+                'medium': { label: 'ปานกลาง', dot: 'bg-amber-400', text: 'text-amber-300', bg: 'bg-amber-500/10' },
+                'low': { label: 'ทั่วไป', dot: 'bg-emerald-400', text: 'text-emerald-300', bg: 'bg-emerald-500/10' }
+            };
+            const p = map[priority] || map['medium'];
+            return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium ${p.bg} ${p.text}">
+                <span class="w-1.5 h-1.5 rounded-full ${p.dot}"></span>
+                ${p.label}
+            </span>`;
+        }
+
+        function updateStatsAndProgress() {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.completed).length;
+            const pending = total - completed;
+            const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-completed').textContent = completed;
+            document.getElementById('stat-pending').textContent = pending;
+            document.getElementById('progress-percentage').textContent = `${percentage}%`;
+            document.getElementById('progress-bar-fill').style.width = `${percentage}%`;
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('task-list-container');
+            const emptyState = document.getElementById('empty-state');
+
+            // Filter tasks
+            const filtered = tasks.filter(task => {
+                const matchesStatus = 
+                    currentStatusFilter === 'all' ? true :
+                    currentStatusFilter === 'active' ? !task.completed :
+                    task.completed;
+
+                const matchesCategory = 
+                    currentCategoryFilter === 'all' ? true :
+                    task.category === currentCategoryFilter;
+
+                const matchesSearch = 
+                    task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    task.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+                return matchesStatus && matchesCategory && matchesSearch;
+            });
+
+            // Sort: Incomplete first, then by priority (high > medium > low), then newest
+            const priorityWeight = { high: 3, medium: 2, low: 1 };
+            filtered.sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                if (priorityWeight[b.priority] !== priorityWeight[a.priority]) {
+                    return priorityWeight[b.priority] - priorityWeight[a.priority];
+                }
+                return b.createdAt - a.createdAt;
+            });
+
+            updateStatsAndProgress();
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                lucide.createIcons();
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.innerHTML = filtered.map(task => {
+                const dueInfo = formatDueDate(task.dueDate);
+                const dueHtml = dueInfo ? `
+                    <span class="inline-flex items-center gap-1 text-[11px] ${dueInfo.isOverdue && !task.completed ? 'text-rose-400 font-medium' : 'text-slate-400'}">
+                        <i data-lucide="calendar-clock" class="w-3.5 h-3.5"></i>
+                        ${dueInfo.text}
+                    </span>
+                ` : '';
+
+                return `
+                <div class="glass-card rounded-2xl p-4 flex items-start sm:items-center justify-between gap-3.5 group ${task.completed ? 'task-completed opacity-75' : ''}">
+                    <!-- Left: Custom Checkbox + Content -->
+                    <div class="flex items-start gap-3.5 flex-1 min-w-0">
+                        <button onclick="toggleTask('${task.id}')" aria-label="สลับสถานะงาน" 
+                            class="mt-0.5 sm:mt-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                                task.completed 
+                                ? 'bg-emerald-500 border-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.5)]' 
+                                : 'border-slate-500 hover:border-emerald-400 bg-slate-900/50'
+                            }">
+                            ${task.completed ? '<i data-lucide="check" class="w-4 h-4 stroke-[3]"></i>' : ''}
+                        </button>
+
+                        <div class="flex-1 min-w-0">
+                            <p onclick="toggleTask('${task.id}')" class="task-title-text text-sm sm:text-base font-medium text-slate-100 break-words cursor-pointer select-none leading-snug">
+                                ${escapeHTML(task.title)}
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2 mt-2">
+                                ${getCategoryBadge(task.category)}
+                                ${getPriorityBadge(task.priority)}
+                                ${dueHtml}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Action Buttons -->
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="openEditModal('${task.id}')" aria-label="แก้ไข" class="p-2 rounded-xl text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition cursor-pointer">
+                            <i data-lucide="pencil" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="deleteTask('${task.id}')" aria-label="ลบรายการ" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 4. CRUD Operations
+        // ==========================================
+        document.getElementById('quick-task-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const titleInput = document.getElementById('task-title-input');
+            const categoryInput = document.getElementById('task-category-input');
+            const priorityInput = document.getElementById('task-priority-input');
+            const dueInput = document.getElementById('task-due-input');
+
+            const title = titleInput.value.trim();
+            if (!title) return;
+
+            const newTask = {
+                id: 'task-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                title: title,
+                category: categoryInput.value,
+                priority: priorityInput.value,
+                dueDate: dueInput.value,
+                completed: false,
+                createdAt: Date.now()
+            };
+
+            tasks.unshift(newTask);
+            saveTasks();
+            renderTasks();
+
+            titleInput.value = '';
+            dueInput.value = '';
+            showToast('เพิ่มรายการเรียบร้อยแล้ว');
+        });
+
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            task.completed = !task.completed;
+            saveTasks();
+            renderTasks();
+            if (task.completed) {
+                showToast('เยี่ยมมาก! ทำงานสำเร็จแล้ว 🎉');
+            }
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveTasks();
+            renderTasks();
+            showToast('ลบรายการเรียบร้อยแล้ว');
+        }
+
+        // Edit Modal Controls
+        function openEditModal(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            document.getElementById('edit-task-id').value = task.id;
+            document.getElementById('edit-task-title').value = task.title;
+            document.getElementById('edit-task-category').value = task.category;
+            document.getElementById('edit-task-priority').value = task.priority;
+            document.getElementById('edit-task-due').value = task.dueDate || '';
+
+            const modal = document.getElementById('edit-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('edit-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.getElementById('edit-task-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-task-id').value;
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            task.title = document.getElementById('edit-task-title').value.trim();
+            task.category = document.getElementById('edit-task-category').value;
+            task.priority = document.getElementById('edit-task-priority').value;
+            task.dueDate = document.getElementById('edit-task-due').value;
+
+            saveTasks();
+            renderTasks();
+            closeEditModal();
+            showToast('บันทึกการแก้ไขแล้ว');
+        });
+
+        // ==========================================
+        // 5. Filtering, Searching & Modals
+        // ==========================================
+        function setStatusFilter(status) {
+            currentStatusFilter = status;
+            document.querySelectorAll('.status-tab').forEach(btn => {
+                if (btn.dataset.status === status) {
+                    btn.className = 'status-tab flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer bg-emerald-600 text-white shadow';
+                } else {
+                    btn.className = 'status-tab flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer text-slate-300 hover:text-white';
+                }
+            });
+            renderTasks();
+        }
+
+        function setCategoryFilter(category) {
+            currentCategoryFilter = category;
+            document.querySelectorAll('.cat-pill').forEach(btn => {
+                if (btn.dataset.cat === category) {
+                    btn.className = 'cat-pill px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                } else {
+                    btn.className = 'cat-pill px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer bg-slate-800/60 text-slate-300 border border-white/5 hover:border-white/20';
+                }
+            });
+            renderTasks();
+        }
+
+        document.getElementById('search-input').addEventListener('input', function(e) {
+            searchQuery = e.target.value;
+            const clearBtn = document.getElementById('clear-search-btn');
+            if (searchQuery.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderTasks();
+        });
+
+        function clearSearch() {
+            const input = document.getElementById('search-input');
+            input.value = '';
+            searchQuery = '';
+            document.getElementById('clear-search-btn').classList.add('hidden');
+            renderTasks();
+        }
+
+        function focusQuickAdd() {
+            const input = document.getElementById('task-title-input');
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => input.focus(), 250);
+        }
+
+        function openInstallModal() {
+            const modal = document.getElementById('install-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeInstallModal() {
+            const modal = document.getElementById('install-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function openDeployModal() {
+            const modal = document.getElementById('deploy-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeDeployModal() {
+            const modal = document.getElementById('deploy-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Custom Toast Notification (Replaces alert)
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'glass-panel px-4 py-2.5 rounded-2xl border border-emerald-500/30 text-xs sm:text-sm font-medium text-emerald-200 shadow-xl flex items-center gap-2 animate-slide-up';
+            toast.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>${escapeHTML(message)}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-8px)';
+                toast.style.transition = 'all 0.25s ease';
+                setTimeout(() => toast.remove(), 250);
+            }, 2400);
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag));
+        }
+
+        // Close modals when clicking backdrop
+        window.addEventListener('click', function(e) {
+            const editModal = document.getElementById('edit-modal');
+            const installModal = document.getElementById('install-modal');
+            const deployModal = document.getElementById('deploy-modal');
+            if (e.target === editModal) closeEditModal();
+            if (e.target === installModal) closeInstallModal();
+            if (e.target === deployModal) closeDeployModal();
+        });
+
+        // ==========================================
+        // 6. Initialize App
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            setupPWAAssets();
+            updateThaiDateDisplay();
+            loadTasks();
+            renderTasks();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
